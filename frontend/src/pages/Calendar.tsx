@@ -1,0 +1,303 @@
+import React, { useState, useEffect } from 'react';
+import { TimeSlot, Availability } from '../types';
+import { api } from '../services/api';
+
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 12); // 12 to 24
+const TIME_FORMAT = (hour: number) => `${hour.toString().padStart(2, '0')}:00`;
+
+const USER_COLORS: { [key: string]: string } = {
+  'Reen': '#6B46C1', // Deep Purple
+  'Kris': '#E53E3E', // Red
+  'Neeko': '#DD6B20', // Orange
+  'Zela': '#D53F8C', // Pink
+  'Zuju': '#4299E1', // Light Blue
+};
+
+const Calendar: React.FC = () => {
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [availabilities, setAvailabilities] = useState<Availability[]>([]);
+  const [error, setError] = useState<string>('');
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+
+  // Generate next 7 days
+  useEffect(() => {
+    const dates = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() + i);
+      return date.toISOString().split('T')[0];
+    });
+    setSelectedDates(dates);
+  }, []);
+
+  useEffect(() => {
+    if (selectedDates.length > 0) {
+      loadTimeSlots(selectedDates);
+    }
+  }, [selectedDates]);
+
+  const loadTimeSlots = async (dates: string[]) => {
+    try {
+      const allSlots: TimeSlot[] = [];
+      for (const date of dates) {
+        const slots = await api.getTimeSlots(date);
+        allSlots.push(...slots);
+      }
+      setTimeSlots(allSlots);
+      
+      // Group time slots by user
+      const groupedSlots = allSlots.reduce((acc: { [key: string]: TimeSlot[] }, slot) => {
+        if (!acc[slot.user_id]) {
+          acc[slot.user_id] = [];
+        }
+        acc[slot.user_id].push(slot);
+        return acc;
+      }, {});
+
+      // Convert to availabilities format
+      const newAvailabilities = Object.entries(groupedSlots).map(([userId, slots]) => ({
+        userId,
+        userName: userId,
+        timeSlots: slots
+      }));
+
+      setAvailabilities(newAvailabilities);
+    } catch (err) {
+      setError('Failed to load time slots');
+      console.error(err);
+    }
+  };
+
+  const handleCellClick = async (date: string, hour: number) => {
+    const username = localStorage.getItem('username');
+    if (!username) {
+      setError('Please select your name first');
+      return;
+    }
+
+    const timeStr = TIME_FORMAT(hour);
+    const existingSlot = timeSlots.find(slot => 
+      slot.user_id === username && 
+      slot.date === date && 
+      slot.start_time === timeStr
+    );
+
+    try {
+      if (existingSlot) {
+        // Remove the time slot
+        await api.deleteTimeSlot(existingSlot.id);
+        setTimeSlots(timeSlots.filter(slot => slot.id !== existingSlot.id));
+      } else {
+        // Add a new time slot
+        const newTimeSlot = await api.createTimeSlot({
+          user_id: username,
+          start_time: timeStr,
+          end_time: TIME_FORMAT(hour + 1),
+          date: date
+        });
+        setTimeSlots([...timeSlots, newTimeSlot]);
+      }
+
+      // Update availabilities
+      const userAvailability = availabilities.find(a => a.userId === username);
+      if (userAvailability) {
+        const updatedAvailabilities = availabilities.map(a => 
+          a.userId === username 
+            ? { 
+                ...a, 
+                timeSlots: existingSlot 
+                  ? a.timeSlots.filter(slot => slot.id !== existingSlot.id)
+                  : [...a.timeSlots, newTimeSlot]
+              }
+            : a
+        );
+        setAvailabilities(updatedAvailabilities);
+      } else if (!existingSlot) {
+        setAvailabilities([
+          ...availabilities,
+          {
+            userId: username,
+            userName: username,
+            timeSlots: [newTimeSlot]
+          }
+        ]);
+      }
+      setError('');
+    } catch (err) {
+      setError('Failed to update time slot');
+      console.error(err);
+    }
+  };
+
+  const handleDateClick = async (date: string) => {
+    const username = localStorage.getItem('username');
+    if (!username) {
+      setError('Please select your name first');
+      return;
+    }
+
+    try {
+      // Check if all times are already selected
+      const allTimesSelected = HOURS.every(hour => 
+        isTimeSlotAvailable(date, hour, username)
+      );
+
+      if (allTimesSelected) {
+        // Remove all time slots for this date
+        const slotsToRemove = timeSlots.filter(slot => 
+          slot.user_id === username && slot.date === date
+        );
+        
+        for (const slot of slotsToRemove) {
+          await api.deleteTimeSlot(slot.id);
+        }
+        
+        setTimeSlots(prevSlots => prevSlots.filter(slot => 
+          !(slot.user_id === username && slot.date === date)
+        ));
+
+        // Update availabilities
+        setAvailabilities(prevAvailabilities => 
+          prevAvailabilities.map(a => 
+            a.userId === username 
+              ? { 
+                  ...a, 
+                  timeSlots: a.timeSlots.filter(slot => slot.date !== date)
+                }
+              : a
+          )
+        );
+      } else {
+        // Add time slots for all hours
+        const newSlots: TimeSlot[] = [];
+        for (const hour of HOURS) {
+          const timeStr = TIME_FORMAT(hour);
+          const existingSlot = timeSlots.find(slot => 
+            slot.user_id === username && 
+            slot.date === date && 
+            slot.start_time === timeStr
+          );
+
+          if (!existingSlot) {
+            const newTimeSlot = await api.createTimeSlot({
+              user_id: username,
+              start_time: timeStr,
+              end_time: TIME_FORMAT(hour + 1),
+              date: date
+            });
+            newSlots.push(newTimeSlot);
+          }
+        }
+
+        // Update time slots state
+        setTimeSlots(prevSlots => [...prevSlots, ...newSlots]);
+
+        // Update availabilities
+        setAvailabilities(prevAvailabilities => {
+          const userAvailability = prevAvailabilities.find(a => a.userId === username);
+          if (userAvailability) {
+            return prevAvailabilities.map(a => 
+              a.userId === username 
+                ? { 
+                    ...a, 
+                    timeSlots: [...a.timeSlots, ...newSlots]
+                  }
+                : a
+            );
+          } else {
+            return [
+              ...prevAvailabilities,
+              {
+                userId: username,
+                userName: username,
+                timeSlots: newSlots
+              }
+            ];
+          }
+        });
+      }
+      setError('');
+    } catch (err) {
+      setError('Failed to update time slots');
+      console.error(err);
+    }
+  };
+
+  const isTimeSlotAvailable = (date: string, hour: number, userId: string) => {
+    const timeStr = TIME_FORMAT(hour);
+    return timeSlots.some(slot => 
+      slot.user_id === userId && 
+      slot.date === date && 
+      slot.start_time === timeStr
+    );
+  };
+
+  const isEveryoneAvailable = (date: string, hour: number) => {
+    if (availabilities.length === 0) return false;
+    return Object.keys(USER_COLORS).every(userId => 
+      isTimeSlotAvailable(date, hour, userId)
+    );
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  return (
+    <div className="container">
+      <div className="card">
+        <h1 className="text-center">Calendar</h1>
+        {error && <div className="error-message">{error}</div>}
+        
+        {/* Availability Grid */}
+        <div className="overflow-x-auto">
+          <table className="availability-grid">
+            <thead>
+              <tr>
+                <th>Time</th>
+                {selectedDates.map(date => (
+                  <th 
+                    key={date} 
+                    className="date-header"
+                    onClick={() => handleDateClick(date)}
+                  >
+                    {formatDate(date)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {HOURS.map(hour => (
+                <tr key={hour}>
+                  <td className="time-cell">{TIME_FORMAT(hour)}</td>
+                  {selectedDates.map(date => (
+                    <td 
+                      key={`${date}-${hour}`} 
+                      className={`availability-cell ${isEveryoneAvailable(date, hour) ? 'all-available' : ''}`}
+                      onClick={() => handleCellClick(date, hour)}
+                    >
+                      {!isEveryoneAvailable(date, hour) && (
+                        <div className="checkbox-grid">
+                          {Object.entries(USER_COLORS).map(([userId, color]) => (
+                            <div
+                              key={userId}
+                              className={`checkbox ${isTimeSlotAvailable(date, hour, userId) ? 'checked' : ''}`}
+                              style={{ '--checkbox-color': color } as React.CSSProperties}
+                              title={`${userId} - ${TIME_FORMAT(hour)}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Calendar; 
