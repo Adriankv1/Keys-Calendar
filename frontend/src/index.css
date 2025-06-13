@@ -196,6 +196,7 @@ select.form-control:focus {
   height: 30px;
   position: relative;
   transition: all 0.2s;
+  cursor: pointer;
 }
 
 .availability-cell.all-available {

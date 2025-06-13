@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -7,13 +8,49 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (username === 'Quentiam' && password === 'Push') {
-      localStorage.setItem('isAuthenticated', 'true');
+    setError('');
+
+    try {
+      // First, get the user's email from the username
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('username', username)
+        .single();
+
+      console.log('User lookup result:', { userData, userError });
+
+      if (userError) {
+        console.error('User lookup error:', userError);
+        setError('Invalid username or password');
+        return;
+      }
+
+      if (!userData) {
+        console.error('No user found with username:', username);
+        setError('Invalid username or password');
+        return;
+      }
+
+      // Then try to sign in with the email and password
+      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: userData.email,
+        password: password,
+      });
+
+      console.log('Auth result:', { authData, signInError });
+
+      if (signInError) {
+        console.error('Sign in error:', signInError);
+        setError('Invalid username or password');
+        return;
+      }
+
       navigate('/home');
-    } else {
+    } catch (err: any) {
+      console.error('Unexpected error:', err);
       setError('Invalid username or password');
     }
   };

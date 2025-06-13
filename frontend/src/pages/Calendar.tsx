@@ -17,17 +17,27 @@ const Calendar: React.FC = () => {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [availabilities, setAvailabilities] = useState<Availability[]>([]);
   const [error, setError] = useState<string>('');
+  const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
 
-  // Generate next 7 days
+  // Generate 7 days for the current week offset (local time)
   useEffect(() => {
-    const dates = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() + i);
-      return date.toISOString().split('T')[0];
-    });
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() + weekOffset * 7);
+    const dates: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      // Format as YYYY-MM-DD in local time
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      dates.push(`${yyyy}-${mm}-${dd}`);
+    }
     setSelectedDates(dates);
-  }, []);
+  }, [weekOffset]);
 
   useEffect(() => {
     if (selectedDates.length > 0) {
@@ -86,6 +96,16 @@ const Calendar: React.FC = () => {
         // Remove the time slot
         await api.deleteTimeSlot(existingSlot.id);
         setTimeSlots(timeSlots.filter(slot => slot.id !== existingSlot.id));
+        // Update availabilities
+        const userAvailability = availabilities.find(a => a.userId === username);
+        if (userAvailability) {
+          const updatedAvailabilities = availabilities.map(a =>
+            a.userId === username
+              ? { ...a, timeSlots: a.timeSlots.filter(slot => slot.id !== existingSlot.id) }
+              : a
+          );
+          setAvailabilities(updatedAvailabilities);
+        }
       } else {
         // Add a new time slot
         const newTimeSlot = await api.createTimeSlot({
@@ -95,31 +115,25 @@ const Calendar: React.FC = () => {
           date: date
         });
         setTimeSlots([...timeSlots, newTimeSlot]);
-      }
-
-      // Update availabilities
-      const userAvailability = availabilities.find(a => a.userId === username);
-      if (userAvailability) {
-        const updatedAvailabilities = availabilities.map(a => 
-          a.userId === username 
-            ? { 
-                ...a, 
-                timeSlots: existingSlot 
-                  ? a.timeSlots.filter(slot => slot.id !== existingSlot.id)
-                  : [...a.timeSlots, newTimeSlot]
-              }
-            : a
-        );
-        setAvailabilities(updatedAvailabilities);
-      } else if (!existingSlot) {
-        setAvailabilities([
-          ...availabilities,
-          {
-            userId: username,
-            userName: username,
-            timeSlots: [newTimeSlot]
-          }
-        ]);
+        // Update availabilities
+        const userAvailability = availabilities.find(a => a.userId === username);
+        if (userAvailability) {
+          const updatedAvailabilities = availabilities.map(a =>
+            a.userId === username
+              ? { ...a, timeSlots: [...a.timeSlots, newTimeSlot] }
+              : a
+          );
+          setAvailabilities(updatedAvailabilities);
+        } else {
+          setAvailabilities([
+            ...availabilities,
+            {
+              userId: username,
+              userName: username,
+              timeSlots: [newTimeSlot]
+            }
+          ]);
+        }
       }
       setError('');
     } catch (err) {
@@ -248,7 +262,22 @@ const Calendar: React.FC = () => {
       <div className="card">
         <h1 className="text-center">Calendar</h1>
         {error && <div className="error-message">{error}</div>}
-        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <button
+            className="btn btn-secondary"
+            onClick={() => setWeekOffset(weekOffset - 1)}
+            disabled={weekOffset === 0}
+          >
+            Previous
+          </button>
+          <span style={{ fontWeight: 'bold' }}>Week of {formatDate(selectedDates[0])}</span>
+          <button
+            className="btn btn-secondary"
+            onClick={() => setWeekOffset(weekOffset + 1)}
+          >
+            Next
+          </button>
+        </div>
         {/* Availability Grid */}
         <div className="overflow-x-auto">
           <table className="availability-grid">
