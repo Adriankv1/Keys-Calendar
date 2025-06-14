@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TimeSlot, Availability } from '../types';
 import { api } from '../services/api';
+import { getWeekDates } from '../components/AvailabilityOverview';
 
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 12); // 12 to 24
 const TIME_FORMAT = (hour: number) => `${hour.toString().padStart(2, '0')}:00`;
@@ -20,23 +21,9 @@ const Calendar: React.FC = () => {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
 
-  // Generate 7 days for the current week offset (local time)
+  // Generate 7 days for the current week offset, starting on Wednesday
   useEffect(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() + weekOffset * 7);
-    const dates: string[] = [];
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(startOfWeek);
-      date.setDate(startOfWeek.getDate() + i);
-      // Format as YYYY-MM-DD in local time
-      const yyyy = date.getFullYear();
-      const mm = String(date.getMonth() + 1).padStart(2, '0');
-      const dd = String(date.getDate()).padStart(2, '0');
-      dates.push(`${yyyy}-${mm}-${dd}`);
-    }
-    setSelectedDates(dates);
+    setSelectedDates(getWeekDates(weekOffset));
   }, [weekOffset]);
 
   useEffect(() => {

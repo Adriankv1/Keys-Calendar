@@ -7,6 +7,7 @@ const NAMES = ['Zuju', 'Zela', 'Reen', 'Kris', 'Neeko'];
 const Home: React.FC = () => {
   const [selectedName, setSelectedName] = useState('');
   const [error, setError] = useState('');
+  const [weekOffset, setWeekOffset] = useState(0);
   const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -50,7 +51,7 @@ const Home: React.FC = () => {
         </form>
       </div>
 
-      <AvailabilityOverview />
+      <AvailabilityOverview weekOffset={weekOffset} onWeekChange={setWeekOffset} />
     </div>
   );
 };
