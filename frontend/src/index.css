@@ -237,23 +237,10 @@ select.form-control:focus {
   filter: brightness(1.1);
 }
 
-.availability-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  height: 100%;
-  overflow-y: auto;
-}
-
-.availability-name {
-  font-size: 0.75rem;
-  padding: 2px 4px;
-  border-radius: 3px;
-  background-color: #007bff;
-  color: white;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.availability-cell.past-date {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--secondary-color);
 }
 
 .availability-cell.all-available .availability-name {
@@ -337,6 +324,15 @@ select.form-control:focus {
   opacity: 1;
 }
 
+.date-header.past-date {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.date-header.past-date:hover {
+  background-color: var(--secondary-color);
+}
+
 .login-form {
   max-width: 400px;
   margin: 0 auto;
@@ -367,5 +363,28 @@ select.form-control:focus {
   padding: 0.75rem;
   font-size: 1rem;
   font-weight: 500;
+}
+
+.availability-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.availability-name {
+  font-size: 0.75rem;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background-color: #007bff;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.availability-cell.all-available .availability-name {
+  background-color: rgba(255, 255, 255, 0.2);
 }
 

@@ -64,7 +64,19 @@ const Calendar: React.FC = () => {
     }
   };
 
+  const isDateInPast = (dateStr: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const date = new Date(dateStr);
+    return date < today;
+  };
+
   const handleCellClick = async (date: string, hour: number) => {
+    if (isDateInPast(date)) {
+      setError('Cannot modify past dates');
+      return;
+    }
+
     const username = localStorage.getItem('username');
     if (!username) {
       setError('Please select your name first');
@@ -130,6 +142,11 @@ const Calendar: React.FC = () => {
   };
 
   const handleDateClick = async (date: string) => {
+    if (isDateInPast(date)) {
+      setError('Cannot modify past dates');
+      return;
+    }
+
     const username = localStorage.getItem('username');
     if (!username) {
       setError('Please select your name first');
@@ -265,52 +282,49 @@ const Calendar: React.FC = () => {
             Next
           </button>
         </div>
-        {/* Availability Grid */}
-        <div className="overflow-x-auto">
-          <table className="availability-grid">
-            <thead>
-              <tr>
-                <th>Time</th>
+        <table className="availability-grid">
+          <thead>
+            <tr>
+              <th>Time</th>
+              {selectedDates.map(date => (
+                <th 
+                  key={date} 
+                  className={`date-header ${isDateInPast(date) ? 'past-date' : ''}`}
+                  onClick={() => !isDateInPast(date) && handleDateClick(date)}
+                >
+                  {formatDate(date)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {HOURS.map(hour => (
+              <tr key={hour}>
+                <td className="time-cell">{TIME_FORMAT(hour)}</td>
                 {selectedDates.map(date => (
-                  <th 
-                    key={date} 
-                    className="date-header"
-                    onClick={() => handleDateClick(date)}
+                  <td 
+                    key={`${date}-${hour}`} 
+                    className={`availability-cell ${isEveryoneAvailable(date, hour) ? 'all-available' : ''} ${isDateInPast(date) ? 'past-date' : ''}`}
+                    onClick={() => !isDateInPast(date) && handleCellClick(date, hour)}
                   >
-                    {formatDate(date)}
-                  </th>
+                    {!isEveryoneAvailable(date, hour) && (
+                      <div className="checkbox-grid">
+                        {Object.entries(USER_COLORS).map(([userId, color]) => (
+                          <div
+                            key={userId}
+                            className={`checkbox ${isTimeSlotAvailable(date, hour, userId) ? 'checked' : ''}`}
+                            style={{ '--checkbox-color': color } as React.CSSProperties}
+                            title={`${userId} - ${TIME_FORMAT(hour)}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </td>
                 ))}
               </tr>
-            </thead>
-            <tbody>
-              {HOURS.map(hour => (
-                <tr key={hour}>
-                  <td className="time-cell">{TIME_FORMAT(hour)}</td>
-                  {selectedDates.map(date => (
-                    <td 
-                      key={`${date}-${hour}`} 
-                      className={`availability-cell ${isEveryoneAvailable(date, hour) ? 'all-available' : ''}`}
-                      onClick={() => handleCellClick(date, hour)}
-                    >
-                      {!isEveryoneAvailable(date, hour) && (
-                        <div className="checkbox-grid">
-                          {Object.entries(USER_COLORS).map(([userId, color]) => (
-                            <div
-                              key={userId}
-                              className={`checkbox ${isTimeSlotAvailable(date, hour, userId) ? 'checked' : ''}`}
-                              style={{ '--checkbox-color': color } as React.CSSProperties}
-                              title={`${userId} - ${TIME_FORMAT(hour)}`}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
