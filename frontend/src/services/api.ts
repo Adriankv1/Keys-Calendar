@@ -65,7 +65,7 @@ export const api = {
   },
 
   async cleanupPastTimeSlots(): Promise<void> {
-    // Get current date in Oslo timezone
+    // Get current date in Oslo timezone to ensure consistent date handling across timezones
     const now = new Date();
     const osloDate = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Oslo' }));
     const todayStr = osloDate.toLocaleDateString('en-GB', {
@@ -77,7 +77,7 @@ export const api = {
     
     console.log('Current date in Oslo:', todayStr);
 
-    // First, get all past time slots
+    // Fetch all time slots that are in the past relative to Oslo time
     const { data: pastSlots, error: fetchError } = await supabase
       .from('time_slots')
       .select('*')
@@ -91,7 +91,8 @@ export const api = {
     if (pastSlots && pastSlots.length > 0) {
       console.log('Found past time slots to transfer:', pastSlots);
       
-      // Group slots by date
+      // Group slots by date to handle each day's slots together
+      // This ensures we maintain the relationship between slots on the same day
       const slotsByDate = pastSlots.reduce((acc: { [key: string]: TimeSlot[] }, slot) => {
         if (!acc[slot.date]) {
           acc[slot.date] = [];
@@ -100,14 +101,18 @@ export const api = {
         return acc;
       }, {});
 
-      // For each past date, transfer slots to next week
+      // Process each past date's slots
+      // For each date, we:
+      // 1. Calculate the corresponding date next week
+      // 2. Create new slots for next week
+      // 3. Delete the old slots
       for (const [date, slots] of Object.entries(slotsByDate)) {
         const pastDate = new Date(date);
         const nextWeekDate = new Date(pastDate);
         nextWeekDate.setDate(pastDate.getDate() + 7);
         const nextWeekDateStr = nextWeekDate.toISOString().split('T')[0];
 
-        // Create new slots for next week
+        // Create new slots for next week, preserving all user selections and time slots
         const newSlots = slots.map(slot => ({
           user_id: slot.user_id,
           start_time: slot.start_time,
@@ -115,7 +120,7 @@ export const api = {
           date: nextWeekDateStr
         }));
 
-        // Insert new slots
+        // Insert new slots first to ensure we don't lose data if deletion fails
         const { error: insertError } = await supabase
           .from('time_slots')
           .insert(newSlots);
@@ -125,7 +130,7 @@ export const api = {
           throw new Error(insertError.message);
         }
 
-        // Delete old slots
+        // Only delete old slots after successful insertion
         for (const slot of slots) {
           const { error: deleteError } = await supabase
             .from('time_slots')

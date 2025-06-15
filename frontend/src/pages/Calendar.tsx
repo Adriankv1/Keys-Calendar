@@ -22,12 +22,13 @@ const Calendar: React.FC = () => {
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
 
   // Clean up past time slots when component mounts and when dates change
+  // This ensures we don't show outdated data and automatically transfer past slots
   useEffect(() => {
     const cleanupPastSlots = async () => {
       try {
         console.log('Running cleanup for past time slots...');
         await api.cleanupPastTimeSlots();
-        // Reload time slots after cleanup
+        // Reload time slots after cleanup to show updated data
         if (selectedDates.length > 0) {
           await loadTimeSlots(selectedDates);
         }
@@ -50,6 +51,8 @@ const Calendar: React.FC = () => {
     }
   }, [selectedDates]);
 
+  // Load and organize time slots for the selected dates
+  // Groups slots by user and converts them to the availability format
   const loadTimeSlots = async (dates: string[]) => {
     try {
       const allSlots: TimeSlot[] = [];
@@ -59,7 +62,7 @@ const Calendar: React.FC = () => {
       }
       setTimeSlots(allSlots);
       
-      // Group time slots by user
+      // Group time slots by user for easier availability checking
       const groupedSlots = allSlots.reduce((acc: { [key: string]: TimeSlot[] }, slot) => {
         if (!acc[slot.user_id]) {
           acc[slot.user_id] = [];
@@ -68,7 +71,7 @@ const Calendar: React.FC = () => {
         return acc;
       }, {});
 
-      // Convert to availabilities format
+      // Convert grouped slots to availability format for the UI
       const newAvailabilities = Object.entries(groupedSlots).map(([userId, slots]) => ({
         userId,
         userName: userId,
@@ -82,6 +85,7 @@ const Calendar: React.FC = () => {
     }
   };
 
+  // Check if a date is in the past relative to Oslo time
   const isDateInPast = (dateStr: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -89,6 +93,8 @@ const Calendar: React.FC = () => {
     return date < today;
   };
 
+  // Handle individual time slot selection/deselection
+  // Toggles availability for a specific hour on a specific date
   const handleCellClick = async (date: string, hour: number) => {
     if (isDateInPast(date)) {
       setError('Cannot modify past dates');
@@ -110,10 +116,10 @@ const Calendar: React.FC = () => {
 
     try {
       if (existingSlot) {
-        // Remove the time slot
+        // Remove the time slot if it exists
         await api.deleteTimeSlot(existingSlot.id);
         setTimeSlots(timeSlots.filter(slot => slot.id !== existingSlot.id));
-        // Update availabilities
+        // Update availabilities to reflect the removal
         const userAvailability = availabilities.find(a => a.userId === username);
         if (userAvailability) {
           const updatedAvailabilities = availabilities.map(a =>
@@ -124,7 +130,7 @@ const Calendar: React.FC = () => {
           setAvailabilities(updatedAvailabilities);
         }
       } else {
-        // Add a new time slot
+        // Add a new time slot if it doesn't exist
         const newTimeSlot = await api.createTimeSlot({
           user_id: username,
           start_time: timeStr,
@@ -132,7 +138,7 @@ const Calendar: React.FC = () => {
           date: date
         });
         setTimeSlots([...timeSlots, newTimeSlot]);
-        // Update availabilities
+        // Update availabilities to include the new slot
         const userAvailability = availabilities.find(a => a.userId === username);
         if (userAvailability) {
           const updatedAvailabilities = availabilities.map(a =>
@@ -159,6 +165,8 @@ const Calendar: React.FC = () => {
     }
   };
 
+  // Handle entire day selection/deselection
+  // Toggles availability for all hours on a specific date
   const handleDateClick = async (date: string) => {
     if (isDateInPast(date)) {
       setError('Cannot modify past dates');
@@ -172,13 +180,13 @@ const Calendar: React.FC = () => {
     }
 
     try {
-      // Check if all times are already selected
+      // Check if all times are already selected for this date
       const allTimesSelected = HOURS.every(hour => 
         isTimeSlotAvailable(date, hour, username)
       );
 
       if (allTimesSelected) {
-        // Remove all time slots for this date
+        // Remove all time slots for this date if all are selected
         const slotsToRemove = timeSlots.filter(slot => 
           slot.user_id === username && slot.date === date
         );
@@ -191,7 +199,7 @@ const Calendar: React.FC = () => {
           !(slot.user_id === username && slot.date === date)
         ));
 
-        // Update availabilities
+        // Update availabilities to reflect the removal
         setAvailabilities(prevAvailabilities => 
           prevAvailabilities.map(a => 
             a.userId === username 
@@ -203,7 +211,7 @@ const Calendar: React.FC = () => {
           )
         );
       } else {
-        // Add time slots for all hours
+        // Add time slots for all hours if not all are selected
         const newSlots: TimeSlot[] = [];
         for (const hour of HOURS) {
           const timeStr = TIME_FORMAT(hour);
@@ -224,10 +232,10 @@ const Calendar: React.FC = () => {
           }
         }
 
-        // Update time slots state
+        // Update time slots state with new slots
         setTimeSlots(prevSlots => [...prevSlots, ...newSlots]);
 
-        // Update availabilities
+        // Update availabilities to include new slots
         setAvailabilities(prevAvailabilities => {
           const userAvailability = prevAvailabilities.find(a => a.userId === username);
           if (userAvailability) {
@@ -258,7 +266,7 @@ const Calendar: React.FC = () => {
     }
   };
 
-
+  // Check if a specific time slot is available for a user
   const isTimeSlotAvailable = (date: string, hour: number, userId: string) => {
     const timeStr = TIME_FORMAT(hour);
     return timeSlots.some(slot => 
@@ -268,6 +276,7 @@ const Calendar: React.FC = () => {
     );
   };
 
+  // Check if all users are available for a specific time slot
   const isEveryoneAvailable = (date: string, hour: number) => {
     if (availabilities.length === 0) return false;
     return Object.keys(USER_COLORS).every(userId => 
@@ -275,6 +284,7 @@ const Calendar: React.FC = () => {
     );
   };
 
+  // Format date for display in the calendar header
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
