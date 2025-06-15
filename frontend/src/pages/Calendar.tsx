@@ -258,6 +258,25 @@ const Calendar: React.FC = () => {
     }
   };
 
+  const handleTransferWeek = async () => {
+    try {
+      const currentWeekDates = getWeekDates(weekOffset);
+      const nextWeekDates = getWeekDates(weekOffset + 1);
+
+      // Transfer time slots for each day
+      for (let i = 0; i < currentWeekDates.length; i++) {
+        await api.transferTimeSlots(currentWeekDates[i], nextWeekDates[i]);
+      }
+
+      // Reload time slots for the current view
+      await loadTimeSlots(selectedDates);
+      setError('');
+    } catch (err) {
+      setError('Failed to transfer time slots');
+      console.error(err);
+    }
+  };
+
   const isTimeSlotAvailable = (date: string, hour: number, userId: string) => {
     const timeStr = TIME_FORMAT(hour);
     return timeSlots.some(slot => 
@@ -302,7 +321,11 @@ const Calendar: React.FC = () => {
           <span style={{ fontWeight: 'bold', textAlign: 'center' }}>Week of {formatDate(selectedDates[0])}</span>
           <button
             className="btn btn-secondary"
-            onClick={() => setWeekOffset(weekOffset + 1)}
+            onClick={async () => {
+              // Transfer current week to next week before changing the offset
+              await handleTransferWeek();
+              setWeekOffset(weekOffset + 1);
+            }}
           >
             Next
           </button>

@@ -77,7 +77,7 @@ export const api = {
     
     console.log('Current date in Oslo:', todayStr);
 
-    // First, get all past time slots to log them
+    // First, get all past time slots
     const { data: pastSlots, error: fetchError } = await supabase
       .from('time_slots')
       .select('*')
@@ -89,24 +89,91 @@ export const api = {
     }
 
     if (pastSlots && pastSlots.length > 0) {
-      console.log('Found past time slots to delete:', pastSlots);
+      console.log('Found past time slots to transfer:', pastSlots);
       
-      // Delete each past slot individually to ensure proper deletion
-      for (const slot of pastSlots) {
-        const { error: deleteError } = await supabase
-          .from('time_slots')
-          .delete()
-          .eq('id', slot.id);
+      // Group slots by date
+      const slotsByDate = pastSlots.reduce((acc: { [key: string]: TimeSlot[] }, slot) => {
+        if (!acc[slot.date]) {
+          acc[slot.date] = [];
+        }
+        acc[slot.date].push(slot);
+        return acc;
+      }, {});
 
-        if (deleteError) {
-          console.error('Error deleting slot:', slot.id, deleteError);
-          throw new Error(deleteError.message);
+      // For each past date, transfer slots to next week
+      for (const [date, slots] of Object.entries(slotsByDate)) {
+        const pastDate = new Date(date);
+        const nextWeekDate = new Date(pastDate);
+        nextWeekDate.setDate(pastDate.getDate() + 7);
+        const nextWeekDateStr = nextWeekDate.toISOString().split('T')[0];
+
+        // Create new slots for next week
+        const newSlots = slots.map(slot => ({
+          user_id: slot.user_id,
+          start_time: slot.start_time,
+          end_time: slot.end_time,
+          date: nextWeekDateStr
+        }));
+
+        // Insert new slots
+        const { error: insertError } = await supabase
+          .from('time_slots')
+          .insert(newSlots);
+
+        if (insertError) {
+          console.error('Error inserting new slots:', insertError);
+          throw new Error(insertError.message);
+        }
+
+        // Delete old slots
+        for (const slot of slots) {
+          const { error: deleteError } = await supabase
+            .from('time_slots')
+            .delete()
+            .eq('id', slot.id);
+
+          if (deleteError) {
+            console.error('Error deleting slot:', slot.id, deleteError);
+            throw new Error(deleteError.message);
+          }
         }
       }
       
-      console.log('Successfully deleted all past time slots');
+      console.log('Successfully transferred all past time slots to next week');
     } else {
-      console.log('No past time slots found to clean up');
+      console.log('No past time slots found to transfer');
+    }
+  },
+
+  async transferTimeSlots(fromDate: string, toDate: string): Promise<void> {
+    // Get all time slots for the source date
+    const { data: sourceSlots, error: fetchError } = await supabase
+      .from('time_slots')
+      .select('*')
+      .eq('date', fromDate);
+
+    if (fetchError) {
+      throw new Error(fetchError.message);
+    }
+
+    if (!sourceSlots || sourceSlots.length === 0) {
+      return; // No slots to transfer
+    }
+
+    // Create new time slots for the target date
+    const newSlots = sourceSlots.map(slot => ({
+      user_id: slot.user_id,
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+      date: toDate
+    }));
+
+    const { error: insertError } = await supabase
+      .from('time_slots')
+      .insert(newSlots);
+
+    if (insertError) {
+      throw new Error(insertError.message);
     }
   },
 }; 
