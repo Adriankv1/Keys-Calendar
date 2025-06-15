@@ -13,15 +13,14 @@ A collaborative calendar application that allows multiple users to manage their 
 ## Tech Stack
 
 ### Frontend
-- React 18
-- TypeScript
-- Vite
+- React
 - React Query
 - React Router
+- TypeScript
+- Vite
 
 ### Backend
-- Node.js
-- Supabase
+- Supabase API connection
 
 ### How to use
 - Login with the credentials "Quentiam" and pass "Push"
