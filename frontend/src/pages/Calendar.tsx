@@ -258,24 +258,6 @@ const Calendar: React.FC = () => {
     }
   };
 
-  const handleTransferWeek = async () => {
-    try {
-      const currentWeekDates = getWeekDates(weekOffset);
-      const nextWeekDates = getWeekDates(weekOffset + 1);
-
-      // Transfer time slots for each day
-      for (let i = 0; i < currentWeekDates.length; i++) {
-        await api.transferTimeSlots(currentWeekDates[i], nextWeekDates[i]);
-      }
-
-      // Reload time slots for the current view
-      await loadTimeSlots(selectedDates);
-      setError('');
-    } catch (err) {
-      setError('Failed to transfer time slots');
-      console.error(err);
-    }
-  };
 
   const isTimeSlotAvailable = (date: string, hour: number, userId: string) => {
     const timeStr = TIME_FORMAT(hour);
