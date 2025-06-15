@@ -321,11 +321,7 @@ const Calendar: React.FC = () => {
           <span style={{ fontWeight: 'bold', textAlign: 'center' }}>Week of {formatDate(selectedDates[0])}</span>
           <button
             className="btn btn-secondary"
-            onClick={async () => {
-              // Transfer current week to next week before changing the offset
-              await handleTransferWeek();
-              setWeekOffset(weekOffset + 1);
-            }}
+            onClick={() => setWeekOffset(weekOffset + 1)}
           >
             Next
           </button>
