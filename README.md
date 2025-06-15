@@ -16,10 +16,15 @@ A collaborative calendar application that allows multiple users to manage their 
 - React 18
 - TypeScript
 - Vite
-- Tailwind CSS
 - React Query
 - React Router
 
 ### Backend
 - Node.js
 - Supabase
+
+### How to use
+- Login with the credentials "Quentiam" and pass "Push"
+- Choose one of the names, click next
+- Select any time slots and dates to fill time avilability for the person
+- If all team members have ticked off a time slot it becomes green and shows as available
