@@ -21,6 +21,24 @@ const Calendar: React.FC = () => {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
 
+  // Clean up past time slots when component mounts and when dates change
+  useEffect(() => {
+    const cleanupPastSlots = async () => {
+      try {
+        console.log('Running cleanup for past time slots...');
+        await api.cleanupPastTimeSlots();
+        // Reload time slots after cleanup
+        if (selectedDates.length > 0) {
+          await loadTimeSlots(selectedDates);
+        }
+      } catch (err) {
+        console.error('Failed to cleanup past time slots:', err);
+        setError('Failed to cleanup past time slots');
+      }
+    };
+    cleanupPastSlots();
+  }, [selectedDates]); // Run cleanup when dates change
+
   // Generate 7 days for the current week offset, starting on Wednesday
   useEffect(() => {
     setSelectedDates(getWeekDates(weekOffset));
@@ -266,7 +284,14 @@ const Calendar: React.FC = () => {
       <div className="card">
         <h1 className="text-center">Calendar</h1>
         {error && <div className="error-message">{error}</div>}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '1rem',
+          flexWrap: 'wrap',
+          gap: '0.5rem'
+        }}>
           <button
             className="btn btn-secondary"
             onClick={() => setWeekOffset(weekOffset - 1)}
@@ -274,7 +299,7 @@ const Calendar: React.FC = () => {
           >
             Previous
           </button>
-          <span style={{ fontWeight: 'bold' }}>Week of {formatDate(selectedDates[0])}</span>
+          <span style={{ fontWeight: 'bold', textAlign: 'center' }}>Week of {formatDate(selectedDates[0])}</span>
           <button
             className="btn btn-secondary"
             onClick={() => setWeekOffset(weekOffset + 1)}
@@ -282,49 +307,51 @@ const Calendar: React.FC = () => {
             Next
           </button>
         </div>
-        <table className="availability-grid">
-          <thead>
-            <tr>
-              <th>Time</th>
-              {selectedDates.map(date => (
-                <th 
-                  key={date} 
-                  className={`date-header ${isDateInPast(date) ? 'past-date' : ''}`}
-                  onClick={() => !isDateInPast(date) && handleDateClick(date)}
-                >
-                  {formatDate(date)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {HOURS.map(hour => (
-              <tr key={hour}>
-                <td className="time-cell">{TIME_FORMAT(hour)}</td>
+        <div className="overflow-x-auto">
+          <table className="availability-grid">
+            <thead>
+              <tr>
+                <th>Time</th>
                 {selectedDates.map(date => (
-                  <td 
-                    key={`${date}-${hour}`} 
-                    className={`availability-cell ${isEveryoneAvailable(date, hour) ? 'all-available' : ''} ${isDateInPast(date) ? 'past-date' : ''}`}
-                    onClick={() => !isDateInPast(date) && handleCellClick(date, hour)}
+                  <th 
+                    key={date} 
+                    className={`date-header ${isDateInPast(date) ? 'past-date' : ''}`}
+                    onClick={() => !isDateInPast(date) && handleDateClick(date)}
                   >
-                    {!isEveryoneAvailable(date, hour) && (
-                      <div className="checkbox-grid">
-                        {Object.entries(USER_COLORS).map(([userId, color]) => (
-                          <div
-                            key={userId}
-                            className={`checkbox ${isTimeSlotAvailable(date, hour, userId) ? 'checked' : ''}`}
-                            style={{ '--checkbox-color': color } as React.CSSProperties}
-                            title={`${userId} - ${TIME_FORMAT(hour)}`}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </td>
+                    {formatDate(date)}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {HOURS.map(hour => (
+                <tr key={hour}>
+                  <td className="time-cell">{TIME_FORMAT(hour)}</td>
+                  {selectedDates.map(date => (
+                    <td 
+                      key={`${date}-${hour}`} 
+                      className={`availability-cell ${isEveryoneAvailable(date, hour) ? 'all-available' : ''} ${isDateInPast(date) ? 'past-date' : ''}`}
+                      onClick={() => !isDateInPast(date) && handleCellClick(date, hour)}
+                    >
+                      {!isEveryoneAvailable(date, hour) && (
+                        <div className="checkbox-grid">
+                          {Object.entries(USER_COLORS).map(([userId, color]) => (
+                            <div
+                              key={userId}
+                              className={`checkbox ${isTimeSlotAvailable(date, hour, userId) ? 'checked' : ''}`}
+                              style={{ '--checkbox-color': color } as React.CSSProperties}
+                              title={`${userId} - ${TIME_FORMAT(hour)}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

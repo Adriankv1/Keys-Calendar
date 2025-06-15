@@ -186,6 +186,7 @@ select.form-control:focus {
   margin-top: 1rem;
   background: var(--background-color);
   box-shadow: 0 2px 4px var(--shadow-color);
+  font-size: 0.9rem;
 }
 
 .availability-grid th,
@@ -201,6 +202,7 @@ select.form-control:focus {
   position: sticky;
   top: 0;
   z-index: 1;
+  white-space: nowrap;
 }
 
 .time-cell {
@@ -209,10 +211,11 @@ select.form-control:focus {
   position: sticky;
   left: 0;
   z-index: 1;
+  white-space: nowrap;
 }
 
 .availability-cell {
-  min-width: 60px;
+  min-width: 40px;
   height: 30px;
   position: relative;
   transition: all 0.2s;
@@ -269,8 +272,8 @@ select.form-control:focus {
   grid-template-columns: repeat(3, 1fr);
   gap: 2px;
   height: 100%;
-  padding: 4px;
-  max-width: 80px;
+  padding: 2px;
+  max-width: 60px;
   margin: 0 auto;
 }
 
@@ -294,7 +297,7 @@ select.form-control:focus {
   left: 50%;
   transform: translate(-50%, -50%);
   color: white;
-  font-size: 10px;
+  font-size: 8px;
 }
 
 .date-header {
@@ -386,5 +389,106 @@ select.form-control:focus {
 
 .availability-cell.all-available .availability-name {
   background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  .container {
+    padding: 0.5rem;
+  }
+
+  .card {
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .availability-grid {
+    font-size: 0.8rem;
+  }
+
+  .availability-grid th,
+  .availability-grid td {
+    padding: 0.25rem;
+  }
+
+  .time-cell {
+    padding-right: 0.5rem;
+  }
+
+  .checkbox-grid {
+    max-width: 50px;
+    gap: 1px;
+    padding: 1px;
+  }
+
+  .checkbox {
+    border-width: 1px;
+  }
+
+  .checkbox.checked::after {
+    font-size: 7px;
+  }
+
+  /* Make the table horizontally scrollable on mobile */
+  .overflow-x-auto {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -0.5rem;
+    padding: 0 0.5rem;
+  }
+
+  /* Add a visual indicator for horizontal scroll */
+  .overflow-x-auto::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 20px;
+    background: linear-gradient(to right, transparent, var(--background-color));
+    pointer-events: none;
+  }
+
+  /* Improve button spacing on mobile */
+  .btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  /* Adjust header spacing */
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Improve navigation spacing */
+  .navbar {
+    padding: 0.5rem 0;
+  }
+
+  .navbar-item {
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+/* Additional improvements for very small screens */
+@media (max-width: 480px) {
+  .availability-grid {
+    font-size: 0.7rem;
+  }
+
+  .checkbox-grid {
+    max-width: 40px;
+  }
+
+  .btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+  }
 }
 

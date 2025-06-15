@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { TimeSlot } from '../types';
+import { TimeSlot } from '../services/api';
 import { api } from '../services/api';
 
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 12); // 12 to 24
 const TIME_FORMAT = (hour: number) => `${hour.toString().padStart(2, '0')}:00`;
+
+interface AvailabilityOverviewProps {
+  weekOffset: number;
+  onWeekChange: (offset: number) => void;
+}
 
 // Utility to get the next 7 days starting from the most recent Wednesday
 export function getWeekDates(weekOffset: number = 0): string[] {
@@ -25,11 +30,6 @@ export function getWeekDates(weekOffset: number = 0): string[] {
     dates.push(`${yyyy}-${mm}-${dd}`);
   }
   return dates;
-}
-
-interface AvailabilityOverviewProps {
-  weekOffset: number;
-  onWeekChange: (offset: number) => void;
 }
 
 const AvailabilityOverview: React.FC<AvailabilityOverviewProps> = ({ weekOffset, onWeekChange }) => {
@@ -62,7 +62,15 @@ const AvailabilityOverview: React.FC<AvailabilityOverviewProps> = ({ weekOffset,
     }
   };
 
+  const isDateInPast = (dateStr: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const date = new Date(dateStr);
+    return date < today;
+  };
+
   const isEveryoneAvailable = (date: string, hour: number) => {
+    if (isDateInPast(date)) return false;
     const timeStr = TIME_FORMAT(hour);
     const availableUsers = new Set(
       timeSlots
@@ -106,7 +114,12 @@ const AvailabilityOverview: React.FC<AvailabilityOverviewProps> = ({ weekOffset,
             <tr>
               <th>Time</th>
               {selectedDates.map(date => (
-                <th key={date}>{formatDate(date)}</th>
+                <th 
+                  key={date}
+                  className={isDateInPast(date) ? 'past-date' : ''}
+                >
+                  {formatDate(date)}
+                </th>
               ))}
             </tr>
           </thead>
@@ -117,7 +130,7 @@ const AvailabilityOverview: React.FC<AvailabilityOverviewProps> = ({ weekOffset,
                 {selectedDates.map(date => (
                   <td 
                     key={`${date}-${hour}`} 
-                    className={`availability-cell ${isEveryoneAvailable(date, hour) ? 'all-available' : 'not-available'}`}
+                    className={`availability-cell ${isEveryoneAvailable(date, hour) ? 'all-available' : 'not-available'} ${isDateInPast(date) ? 'past-date' : ''}`}
                   />
                 ))}
               </tr>
